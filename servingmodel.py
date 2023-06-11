@@ -3,7 +3,6 @@ import pandas as pd
 import json
 import numpy as np
 from flask import Flask, jsonify, request
-import sys
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -18,17 +17,14 @@ class NpEncoder(json.JSONEncoder):
 
 app = Flask(__name__)
 app.json_encoder = NpEncoder
-modelo = None
 
 @app.route("/", methods=['GET', 'POST'])
 def call_home(request = request):
     print(request.values)
-    return "SERVER IS RUNNING! \n" + json.dumps({
-        "args": str(sys.argv),
-    })
+    return "SERVER IS RUNNING!"
 
-@app.route("/predict", methods=['GET', 'POST'])
-def call_predict(request = request):
+@app.route("/modelo01", methods=['POST'])
+def call_modelo01(request = request):
     print(request.values)
 
     json_ = request.json
@@ -37,32 +33,51 @@ def call_predict(request = request):
     if campos.shape[0] == 0:
         return "Dados de chamada da API estão incorretos.", 400
 
-    for col in modelo.independentcols:
-        if col not in campos.columns:
-            campos[col] = 0
-    x = campos[modelo.independentcols]
+    print("Predizendo com modelo 1 para {0} registros".format(campos.shape[0]))
 
-    prediction = modelo.predict(x)
+    # for col in modelo01.independentcols:
+    #     if col not in campos.columns:
+    #         campos[col] = 0
+    # x = campos[modelo01.independentcols]
 
+    prediction = modelo01.predict(campos)
+    predict_proba = modelo01.predict_proba(campos)
 
-    ret = {'prediction': list(prediction)}
-    if hasattr(modelo, 'predict_proba'):
-        predict_proba = modelo.predict_proba(x)
-        ret['proba'] = list(predict_proba)
+    ret = json.dumps({'prediction': list(prediction),
+                      'proba': list(predict_proba)}, cls=NpEncoder)
 
-    return app.response_class(response=json.dumps(ret, cls=NpEncoder), mimetype='application/json')
+    return app.response_class(response=ret, mimetype='application/json')
+
+@app.route("/modelo02", methods=['POST'])
+def call_modelo02(request = request):
+    print(request.values)
+
+    json_ = request.json
+    campos = pd.DataFrame(json_)
+
+    if campos.shape[0] == 0:
+        return "Dados de chamada da API estão incorretos.", 400
+
+    print("Predizendo com modelo 2 para {0} registros".format(campos.shape[0]))
+
+    # for col in modelo02.independentcols:
+    #     if col not in campos.columns:
+    #         campos[col] = 0
+    # x = campos[modelo02.independentcols]
+
+    prediction = modelo02.predict(campos)
+
+    ret = json.dumps({'prediction': list(prediction)},
+                     # 'proba': list(predict_proba)},
+                     cls=NpEncoder)
+
+    return app.response_class(response=ret, mimetype='application/json')
 
 if __name__ == '__main__':
-    args = sys.argv[1:]
-    if len(args) < 1:
-        args.append('models/modelo01.joblib')
-    if len(args) < 2:
-        args.append('8080')
+    modelo01 = joblib.load( 'models/modelo01.joblib')
+    modelo02 = joblib.load( 'models/modelo02.joblib')
+    app.run(port=8080, host = '0.0.0.0')
+    #app.run(port=8080)
+    # pass
 
-    print(args)
-
-    modelo = joblib.load(args[0])
-    # app.run(port=8080, host='0.0.0.0')
-    app.run(port=args[1], host='0.0.0.0')
-    pass
 
